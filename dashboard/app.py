@@ -1,6 +1,3 @@
-
-import streamlit as st
-
 from pathlib import Path
 import sys
 
@@ -12,9 +9,10 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Allow importing our existing XAI module
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from xai import explain_decision
+from src.flight_csv import analyze_flight_csv
 
 
 # Configure the browser page
@@ -50,27 +48,113 @@ st.divider()
 # Sidebar controls
 st.sidebar.header("Flight Measurements")
 
-altitude_mae = st.sidebar.number_input(
-    "Altitude MAE (ft)",
-    min_value=0.0,
-    value=35.0,
-    step=5.0,
+analysis_mode = st.sidebar.radio(
+    "Analysis Mode",
+    ["Manual Analysis", "CSV Flight Analysis"],
 )
 
-airspeed_mae = st.sidebar.number_input(
-    "Airspeed MAE (knots)",
-    min_value=0.0,
-    value=2.5,
-    step=0.5,
-)
 
-heading_mae = st.sidebar.number_input(
-    "Heading MAE (degrees)",
-    min_value=0.0,
-    max_value=180.0,
-    value=15.0,
-    step=1.0,
-)
+
+if analysis_mode == "Manual Analysis":
+
+    altitude_mae = st.sidebar.number_input(
+        "Altitude MAE (ft)",
+        min_value=0.0,
+        value=35.0,
+        step=5.0,
+    )
+
+    airspeed_mae = st.sidebar.number_input(
+        "Airspeed MAE (knots)",
+        min_value=0.0,
+        value=2.5,
+        step=0.5,
+    )
+
+    heading_mae = st.sidebar.number_input(
+        "Heading MAE (degrees)",
+        min_value=0.0,
+        max_value=180.0,
+        value=15.0,
+        step=1.0,
+    )
+
+else:
+
+    uploaded_file = st.sidebar.file_uploader(
+        "Upload flight CSV",
+        type=["csv"],
+    )
+
+    st.sidebar.subheader("Target Flight Conditions")
+
+    target_altitude = st.sidebar.number_input(
+        "Target altitude (ft)",
+        value=3000.0,
+    )
+
+    target_airspeed = st.sidebar.number_input(
+        "Target airspeed (kt)",
+        value=120.0,
+    )
+
+    target_heading = st.sidebar.number_input(
+        "Target heading (degrees)",
+        min_value=0.0,
+        max_value=360.0,
+        value=90.0,
+    )
+
+    if uploaded_file is None:
+        st.info("Upload a flight CSV to begin analysis.")
+        st.stop()
+
+    try:
+        flight_data = pd.read_csv(uploaded_file)
+
+        targets = {
+            "altitude_ft": target_altitude,
+            "airspeed_kt": target_airspeed,
+            "heading_deg": target_heading,
+        }
+
+        results = analyze_flight_csv(
+            flight_data,
+            targets,
+        )
+
+        altitude_mae = results["altitude_mae_ft"]
+        airspeed_mae = results["airspeed_mae_kt"]
+        heading_mae = results["heading_mae_deg"]
+
+    except (ValueError, KeyError, pd.errors.ParserError) as error:
+        st.error(f"Unable to analyze CSV: {error}")
+        st.stop()
+
+if analysis_mode == "CSV Flight Analysis":
+
+    st.header("Recorded Flight Measurements")
+
+    st.write(
+        "These graphs show how the recorded flight "
+        "measurements changed over time."
+    )
+
+    charts = [
+        ("altitude_ft", "Altitude (ft)"),
+        ("airspeed_kt", "Airspeed (kt)"),
+        ("heading_deg", "Heading (degrees)"),
+    ]
+
+    for column, label in charts:
+
+        st.subheader(label)
+
+        chart_data = flight_data[
+            ["time_s", column]
+        ].set_index("time_s")
+
+        st.line_chart(chart_data)
 
 # Display performance metrics
 st.header("Flight Performance Overview")
