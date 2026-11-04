@@ -66,8 +66,6 @@ def validate_recording(df):
 
 def classify_phase(speed, vertical_speed, turn_rate, acceleration):
 
-    # Provisional descriptive rules, not safety thresholds.
-
     if speed < 1:
         return "stationary"
 
@@ -89,25 +87,26 @@ def classify_phase(speed, vertical_speed, turn_rate, acceleration):
     return "moving"
 
 
-def analyze_recording(csv_path):
+def analyze_recording_data(data):
+    """
+    Analyze flight recording data directly from a DataFrame.
+    """
 
-    df = pd.read_csv(csv_path)
-    df = validate_recording(df)
+    df = validate_recording(data)
 
-    # Calculate elapsed time between measurements.
     dt = df["time_s"].diff()
 
-    # Calculate vertical speed in feet per minute.
+    # Vertical speed: feet per minute
     df["vertical_speed_fpm"] = (
         df["altitude_ft"].diff() / dt * 60
     ).fillna(0)
 
-    # Calculate airspeed acceleration in knots per second.
+    # Acceleration: knots per second
     df["acceleration_kt_s"] = (
         df["airspeed_kt"].diff() / dt
     ).fillna(0)
 
-    # Calculate heading changes correctly across 0/360 degrees.
+    # Correct heading changes across 0/360 degrees
     heading_change = (
         (df["heading_deg"].diff() + 180) % 360
     ) - 180
@@ -116,7 +115,6 @@ def analyze_recording(csv_path):
         heading_change / dt
     ).fillna(0)
 
-    # Identify the primary descriptive flight phase.
     phases = []
 
     for speed, vertical, turn, acceleration in zip(
@@ -139,9 +137,21 @@ def analyze_recording(csv_path):
     return df
 
 
+def analyze_recording(csv_path):
+    """
+    Preserve the original CSV file analysis interface.
+    """
+
+    data = pd.read_csv(csv_path)
+
+    return analyze_recording_data(data)
+
+
 def print_summary(df):
 
-    duration = df["time_s"].iloc[-1] - df["time_s"].iloc[0]
+    duration = (
+        df["time_s"].iloc[-1] - df["time_s"].iloc[0]
+    )
 
     print("\nAEROMENTOR - FLIGHT RECORDING ANALYSIS")
     print("--------------------------------------")
@@ -208,6 +218,7 @@ def main():
         result = analyze_recording(args.input)
 
         output_path = Path(args.output)
+
         output_path.parent.mkdir(
             parents=True, exist_ok=True
         )
