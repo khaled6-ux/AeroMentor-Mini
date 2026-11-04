@@ -1,3 +1,4 @@
+
 from pathlib import Path
 import sys
 
@@ -5,14 +6,16 @@ import joblib
 import pandas as pd
 import streamlit as st
 
-# Locate the project directory
+# Locate the project root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Allow importing our existing XAI module
+# Allow Python to import modules from the project root
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from xai import explain_decision
+# Import existing AeroMentor modules
+from src.xai import explain_decision
 from src.flight_csv import analyze_flight_csv
+
 
 
 # Configure the browser page
